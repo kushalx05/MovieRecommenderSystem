@@ -6,14 +6,17 @@ import requests
 # Function to fetch movie poster
 def fetch_poster(movie_id):
     url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key=74f71dcee8aa01725cec028167277995&language=en-US"
-    response = requests.get(url)
-    data = response.json()
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
 
-    # Check if 'poster_path' exists
-    if 'poster_path' in data and data['poster_path']:
-        return "https://image.tmdb.org/t/p/w500/" + data['poster_path']
-    else:
-        return "https://via.placeholder.com/500"  # Default placeholder image
+        if 'poster_path' in data and data['poster_path']:
+            return "https://image.tmdb.org/t/p/w500/" + data['poster_path']
+    except requests.exceptions.RequestException:
+        st.error("⚠️ Error fetching poster. Using default image.")
+
+    return "https://via.placeholder.com/500"  # Default placeholder image
 
 # Function to recommend movies
 def recommend(movie):
@@ -36,11 +39,16 @@ def recommend(movie):
         return [], []
 
 # Load movie data
-movies_dict = pickle.load(open('movie_dict.pkl', 'rb'))
-movies = pd.DataFrame(movies_dict)
-similarity = pickle.load(open('similarity.pkl', 'rb'))
+try:
+    movies_dict = pickle.load(open('movie_dict.pkl', 'rb'))
+    movies = pd.DataFrame(movies_dict)
+    similarity = pickle.load(open('similarity.pkl', 'rb'))
+except (FileNotFoundError, EOFError, pickle.UnpicklingError):
+    st.error("⚠️ Error loading movie data. Please check your files.")
+    st.stop()
 
-# Streamlit UI
+# Streamlit UI Improvements
+st.set_page_config(page_title="Movie Recommender", layout="wide")
 st.title("🎬 Movie Recommender System")
 st.markdown("#### Get movie recommendations based on your favorite movies! 🍿")
 
@@ -54,9 +62,10 @@ if st.button("🔮 Recommend"):
 
     # Display recommendations
     if names:
-        cols = st.columns(5)
+        st.markdown("## Recommended Movies")
+        cols = st.columns(len(names))  # Dynamically set columns
+
         for i, col in enumerate(cols):
-            if i < len(names):
-                with col:
-                    st.markdown(f"**{names[i]}**")
-                    st.image(posters[i], width=150)
+            with col:
+                st.image(posters[i], use_container_width=True)  # Display poster
+                st.markdown(f"<h4 style='text-align: center;'>{names[i]}</h4>", unsafe_allow_html=True)  # Centered text
